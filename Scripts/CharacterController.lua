@@ -3,9 +3,9 @@
 --     Camera (Camera3D)
 --     Controller (Node, with this script)
 
-ThirdPersonController = {}
+CharacterController = {}
 
-ThirdPersonController.kGroundingDot = 0.9
+CharacterController.kGroundingDot = 0.9
 
 function CharacterController:Create()
 
@@ -47,7 +47,7 @@ function CharacterController:Create()
 
 end
 
-function ThirdPersonController:GatherProperties()
+function CharacterController:GatherProperties()
 
     return
     {
@@ -76,7 +76,7 @@ function ThirdPersonController:GatherProperties()
 
 end
 
-function ThirdPersonController:Start()
+function CharacterController:Start()
 
     self:AddTag("Controller")
 
@@ -94,7 +94,7 @@ function ThirdPersonController:Start()
 
 end
 
-function ThirdPersonController:Stop()
+function CharacterController:Stop()
 
     Input.LockCursor(false)
     Input.TrapCursor(false)
@@ -102,7 +102,7 @@ function ThirdPersonController:Stop()
 
 end
 
-function ThirdPersonController:Tick(deltaTime)
+function CharacterController:Tick(deltaTime)
 
     self:UpdateInput(deltaTime)
     self:UpdateJump(deltaTime)
@@ -114,7 +114,7 @@ function ThirdPersonController:Tick(deltaTime)
 
 end
 
-function ThirdPersonController:UpdateInput(deltaTime)
+function CharacterController:UpdateInput(deltaTime)
 
     if (self.enableControl) then
 
@@ -175,7 +175,7 @@ function ThirdPersonController:UpdateInput(deltaTime)
 
 end
 
-function ThirdPersonController:UpdateJump(deltaTime)
+function CharacterController:UpdateJump(deltaTime)
 
     local jumpPressed = Input.IsKeyPressed(Key.Space) or Input.IsGamepadPressed(Gamepad.A)
 
@@ -195,7 +195,7 @@ function ThirdPersonController:UpdateJump(deltaTime)
 
 end
 
-function ThirdPersonController:UpdateDrag(deltaTime)
+function CharacterController:UpdateDrag(deltaTime)
 
     -- Update drag
     local function updateDrag(velocity, drag)
@@ -216,7 +216,7 @@ function ThirdPersonController:UpdateDrag(deltaTime)
 
 end
 
-function ThirdPersonController:UpdateMovement(deltaTime)
+function CharacterController:UpdateMovement(deltaTime)
 
     -- Apply gravity
     if (not self.grounded) then
@@ -251,7 +251,7 @@ function ThirdPersonController:UpdateMovement(deltaTime)
 
 end
 
-function ThirdPersonController:UpdateGrounding(deltaTime)
+function CharacterController:UpdateGrounding(deltaTime)
 
     self.ignoreGroundingTimer = math.max(self.ignoreGroundingTimer - deltaTime, 0.0)
 
@@ -274,7 +274,7 @@ function ThirdPersonController:UpdateGrounding(deltaTime)
     end
 end
 
-function ThirdPersonController:UpdateCamera(deltaTime)
+function CharacterController:UpdateCamera(deltaTime)
 
     local kFollowMinDistXZ = 4.0
 
@@ -342,7 +342,7 @@ function ThirdPersonController:UpdateCamera(deltaTime)
     end
 end
 
-function ThirdPersonController:UpdateMesh(deltaTime)
+function CharacterController:UpdateMesh(deltaTime)
 
     -- Update orientation of the mesh if the player is moving
     if (math.abs(self.moveDir.x) >= 0.01 or
@@ -373,7 +373,7 @@ function ThirdPersonController:UpdateMesh(deltaTime)
     end
 end
 
-function ThirdPersonController:Move(velocity, deltaTime, vertSlideNormalLimit)
+function CharacterController:Move(velocity, deltaTime, vertSlideNormalLimit)
 
     local kMaxIterations = 3
 
@@ -405,7 +405,7 @@ function ThirdPersonController:Move(velocity, deltaTime, vertSlideNormalLimit)
 
 end
 
-function ThirdPersonController:Jump()
+function CharacterController:Jump()
 
     if (self.enableJump and self.grounded) then
         self.isJumping = true
@@ -422,7 +422,7 @@ function ThirdPersonController:Jump()
 end
 
 
-function ThirdPersonController:SetGrounded(grounded)
+function CharacterController:SetGrounded(grounded)
 
     -- Don't allow grounding if we are ignoring it temporarily (just began jumping)
     if (grounded and self.ignoreGroundingTimer > 0.0) then
@@ -440,7 +440,7 @@ function ThirdPersonController:SetGrounded(grounded)
     end
 end
 
-function ThirdPersonController:GetCameraYaw()
+function CharacterController:GetCameraYaw()
     return self.enableFollowCam and
         self.camera:GetRotation().y or
         self.cameraPivot:GetRotation().y

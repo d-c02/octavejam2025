@@ -84,13 +84,22 @@ function CharacterController:Start()
     Input.TrapCursor(true)
     Input.ShowCursor(false)
 
-    if (not self.collider) then
-        self.collider = self:GetParent()
-    end
+    -- if (not self.collider) then
+    self.collider = self:GetParent()
+    -- end
     
-    if (not self.camera) then
-        self.camera = self.collider:FindChild("Camera", true)
-    end
+    -- if (not self.camera) then
+    self.camera = self.collider:FindChild("Camera", true)
+    -- end
+
+    -- if (not self.cameraPivot) then
+        -- self.cameraPivot = self.camera:GetParent()
+    self.cameraPivot = self.collider:FindChild("CameraPivot", true)
+    -- end
+
+    -- if (not self.mesh) then
+    self.mesh = self.collider:FindChild("Skeletal Mesh", true)
+    -- end
 
 end
 

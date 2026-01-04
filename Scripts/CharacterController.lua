@@ -14,6 +14,7 @@ function CharacterController:Create()
     self.camera = nil
     self.cameraPivot = nil
     self.mesh = nil
+    self.rotationSpeed = 200.0
     self.cameraDistance = 10.0
     self.gravity = -9.8
     self.moveSpeed = 7.0
@@ -34,6 +35,8 @@ function CharacterController:Create()
 
     -- State
     self.moveDir = Vec()
+    self.tankRotation = 0.0
+    self.rotationDir = 0.0
     self.lookVec = Vec()
     self.jumpTimer = 0.0
     self.isJumping = false
@@ -51,10 +54,10 @@ function CharacterController:GatherProperties()
 
     return
     {
-        { name = "collider", type = DatumType.Node },
-        { name = "camera", type = DatumType.Node },
-        { name = "cameraPivot", type = DatumType.Node },
-        { name = "mesh", type = DatumType.Node },
+        --{ name = "collider", type = DatumType.Node },
+        --{ name = "camera", type = DatumType.Node },
+        --{ name = "cameraPivot", type = DatumType.Node },
+        --{ name = "mesh", type = DatumType.Node },
         { name = "cameraDistance", type = DatumType.Float },
         { name = "gravity", type = DatumType.Float },
         { name = "moveSpeed", type = DatumType.Float },
@@ -129,12 +132,13 @@ function CharacterController:UpdateInput(deltaTime)
 
         -- moveDir
         self.moveDir = Vec()
+        self.rotationDir = 0.0
         if (Input.IsKeyDown(Key.A)) then
-            self.moveDir.x = self.moveDir.x + -1.0
+            self.rotationDir = self.rotationDir + 1.0
         end
 
         if (Input.IsKeyDown(Key.D)) then
-            self.moveDir.x = self.moveDir.x + 1.0
+            self.rotationDir = self.rotationDir + -1.0
         end
 
         if (Input.IsKeyDown(Key.W)) then
@@ -150,10 +154,10 @@ function CharacterController:UpdateInput(deltaTime)
 
         -- Only add analog stick input beyond a deadzone limit
         if (math.abs(leftAxisX) > 0.1) then
-            self.moveDir.x = self.moveDir.x + leftAxisX
+            self.rotationDir = self.rotationDir + leftAxisX
         end
         if (math.abs(leftAxisY) > 0.1) then
-            self.moveDir.z = self.moveDir.z - leftAxisY
+            self.moveDir.z = self.moveDir.z + leftAxisY
         end
 
         -- Ensure length of moveDir is at most 1.0.
@@ -236,10 +240,21 @@ function CharacterController:UpdateMovement(deltaTime)
         self.extVelocity.y = self.extVelocity.y + gravity * deltaTime
     end
 
+    --Rotate
+    self.tankRotation = self.tankRotation + (self.rotationSpeed * self.rotationDir * deltaTime)
+    
+    if self.tankRotation < 0 then
+        self.tankRotation = self.tankRotation + 360
+    end
+
+    if self.tankRotation >= 360 then
+        self.tankRotation = self.tankRotation - 360
+    end
+
     -- Add velocity based on player input vector
     local deltaMoveVel = self.moveDir * self.moveAccel * deltaTime
-    local yaw = self:GetCameraYaw()
-    deltaMoveVel = Vector.Rotate(deltaMoveVel, yaw, Vec(0,1,0))
+    -- local yaw = self:GetCameraYaw()
+    deltaMoveVel = Vector.Rotate(deltaMoveVel, self.tankRotation, Vec(0,1,0))
 
     -- Reduce move velocity when in air
     if (not self.grounded) then
@@ -353,6 +368,11 @@ end
 
 function CharacterController:UpdateMesh(deltaTime)
 
+
+    -- Update mesh orientation
+    self.mesh:SetRotation(Vec(0, self.tankRotation, 0))
+
+    --[[
     -- Update orientation of the mesh if the player is moving
     if (math.abs(self.moveDir.x) >= 0.01 or
         math.abs(self.moveDir.z) >= 0.01) then
@@ -364,8 +384,9 @@ function CharacterController:UpdateMesh(deltaTime)
         targetYaw = math.deg(targetYaw)
 
         self.meshYaw = Math.ApproachAngle(self.meshYaw, targetYaw, 1000.0, deltaTime)
-        self.mesh:SetRotation(Vec(0, self.meshYaw, 0))
+        self.mesh:SetRotation(Vec(0, self.tankRotation, 0))
     end
+    ]]--
 
     -- Update looping animation
     if (not self.grounded and self.timeSinceGrounded > 0.1) then

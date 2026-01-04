@@ -47,7 +47,6 @@ function CharacterController:Create()
     self.extVelocity = Vec()
     self.moveVelocity = Vec()
     self.meshYaw = 0.0
-
 end
 
 function CharacterController:GatherProperties()
@@ -90,6 +89,7 @@ function CharacterController:Start()
     -- if (not self.collider) then
     self.collider = self:GetParent()
     -- end
+    self.collider:AddTag("Player")
     
     -- if (not self.camera) then
     self.camera = self.collider:FindChild("Camera", true)
@@ -103,6 +103,8 @@ function CharacterController:Start()
     -- if (not self.mesh) then
     self.mesh = self.collider:FindChild("Skeletal Mesh", true)
     -- end
+
+    -- self.camera:Detach(true)
 
 end
 
@@ -121,7 +123,7 @@ function CharacterController:Tick(deltaTime)
     self:UpdateDrag(deltaTime)
     self:UpdateMovement(deltaTime)
     self:UpdateGrounding(deltaTime)
-    self:UpdateCamera(deltaTime)
+    --self:UpdateCamera(deltaTime)
     self:UpdateMesh(deltaTime)
 
 end
@@ -298,6 +300,8 @@ function CharacterController:UpdateGrounding(deltaTime)
     end
 end
 
+
+--[[
 function CharacterController:UpdateCamera(deltaTime)
 
     local kFollowMinDistXZ = 4.0
@@ -365,6 +369,8 @@ function CharacterController:UpdateCamera(deltaTime)
         end
     end
 end
+]]--
+
 
 function CharacterController:UpdateMesh(deltaTime)
 
@@ -470,8 +476,10 @@ function CharacterController:SetGrounded(grounded)
     end
 end
 
+--[[
 function CharacterController:GetCameraYaw()
     return self.enableFollowCam and
         self.camera:GetRotation().y or
         self.cameraPivot:GetRotation().y
 end
+]]--

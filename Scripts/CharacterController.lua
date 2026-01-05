@@ -33,6 +33,14 @@ function CharacterController:Create()
     self.enableCameraTrace = true
     self.mouseSensitivity = 0.05
 
+    -- Crankage
+    self.enableCrankage = true
+    self.decayTimer = 100
+    self.decayAmount = 0.013
+    self.decayCounter = 1
+    self.crankage = 1
+    self.powEaseValue = 8
+
     -- State
     self.moveDir = Vec()
     self.tankRotation = 0.0
@@ -74,6 +82,10 @@ function CharacterController:GatherProperties()
         { name = "enableFollowCam", type = DatumType.Bool },
         { name = "enableCameraTrace", type = DatumType.Bool },
         { name = "mouseSensitivity", type = DatumType.Float },
+        { name = "enableCrankage", type = DatumType.Bool },
+        { name = "decayTimer", type = DatumType.Float },
+        { name = "decayAmount", type = DatumType.Float },
+        { name = "powEaseValue", type = DatumType.Float},
     }
 
 end
@@ -121,11 +133,13 @@ function CharacterController:Tick(deltaTime)
     self:UpdateInput(deltaTime)
     self:UpdateJump(deltaTime)
     self:UpdateDrag(deltaTime)
+    
     self:UpdateMovement(deltaTime)
     self:UpdateGrounding(deltaTime)
     --self:UpdateCamera(deltaTime)
     self:UpdateMesh(deltaTime)
 
+    self:UpdateCrankage(deltaTime)
 end
 
 function CharacterController:UpdateInput(deltaTime)
@@ -188,6 +202,12 @@ function CharacterController:UpdateInput(deltaTime)
         self.lookDelta = Vec()
     end
 
+    -- Refill crankage
+    if (Input.IsKeyPressed(Key.R)) then
+        self.crankage = Math.Clamp(self.crankage + (self.decayAmount * 2), 0, 1)
+        -- do some kind of pause/winding animation
+    end
+        
 end
 
 function CharacterController:UpdateJump(deltaTime)
@@ -242,8 +262,11 @@ function CharacterController:UpdateMovement(deltaTime)
         self.extVelocity.y = self.extVelocity.y + gravity * deltaTime
     end
 
+    -- Get crankage modifier
+    local crankMod = 1 - (1-self.crankage)^self.powEaseValue
+
     --Rotate
-    self.tankRotation = self.tankRotation + (self.rotationSpeed * self.rotationDir * deltaTime)
+    self.tankRotation = self.tankRotation + ((self.rotationSpeed * crankMod) * self.rotationDir * deltaTime)
     
     if self.tankRotation < 0 then
         self.tankRotation = self.tankRotation + 360
@@ -258,7 +281,7 @@ function CharacterController:UpdateMovement(deltaTime)
     -- local yaw = self:GetCameraYaw()
     deltaMoveVel = Vector.Rotate(deltaMoveVel, self.tankRotation, Vec(0,1,0))
 
-    -- Reduce move velocity when in air
+    -- Reduce move velocity when in air -- THIS POOPENFARTEN WE NOT NEED
     if (not self.grounded) then
         deltaMoveVel = deltaMoveVel * self.airControl
     end
@@ -267,6 +290,11 @@ function CharacterController:UpdateMovement(deltaTime)
 
     if (self.moveVelocity:Magnitude() > self.moveSpeed) then
         self.moveVelocity = self.moveVelocity:Normalize() * self.moveSpeed
+    end
+
+    -- Reduce velocity based on crankage O_o
+    if (self.enableCrankage) then
+        self.moveVelocity = self.moveVelocity * crankMod
     end
 
     -- First apply motion based on internal move velocity
@@ -407,6 +435,19 @@ function CharacterController:UpdateMesh(deltaTime)
     else
         self.mesh:PlayAnimation("Idle", 0, true, 1, 1)
     end
+end
+
+function CharacterController:UpdateCrankage(deltaTime)
+
+    if (self.decayCounter >= self.decayTimer) then
+        self.crankage = math.max((self.crankage - self.decayAmount), 0)
+        Log.Console('Reducing crank -- new crank: ' .. tostring(self.crankage), Vec(255,255,255,255))
+        self.decayCounter = 1
+    else
+        -- Log.Console('Decay counter: ' .. tostring(self.decayCounter), Vec(255,255,0,255))
+        self.decayCounter = self.decayCounter + 1
+    end
+
 end
 
 function CharacterController:Move(velocity, deltaTime, vertSlideNormalLimit)

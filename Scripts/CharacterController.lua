@@ -80,6 +80,7 @@ end
 
 function CharacterController:Start()
 
+    self:GetParent():SetPersistent(true)
     self:AddTag("Controller")
 
     Input.LockCursor(true)

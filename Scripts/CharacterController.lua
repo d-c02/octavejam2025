@@ -2,6 +2,19 @@
 --   Root (Primitive3D)
 --     Camera (Camera3D)
 --     Controller (Node, with this script)
+CharacterState = 
+{
+    idle = 0,
+    idleToWalkF = 1,
+    idleToWalkB = 2,
+    idleToCrank = 3,
+    walkForward = 4,
+    walkFwdToIdle = 5,
+    walkBackward = 6,
+    walkBckToIdle = 7,
+    cranking = 8,
+    crankToIdle = 9,
+}
 
 CharacterController = {}
 
@@ -34,14 +47,18 @@ function CharacterController:Create()
     self.mouseSensitivity = 0.05
 
     -- Crankage
-    self.enableCrankage = true
+    self.enableCrankage = false
     self.decayTimer = 100
     self.decayAmount = 0.013
     self.decayCounter = 1
     self.crankage = 1
     self.powEaseValue = 8
 
-    -- State
+    -- Animation State
+    self.characterState = CharacterState.idle
+    self.inAnim = false
+
+    -- Movement State
     self.moveDir = Vec()
     self.tankRotation = 0.0
     self.rotationDir = 0.0
@@ -133,13 +150,11 @@ function CharacterController:Tick(deltaTime)
     self:UpdateInput(deltaTime)
     self:UpdateJump(deltaTime)
     self:UpdateDrag(deltaTime)
-    
     self:UpdateMovement(deltaTime)
+    self:UpdateCrankage(deltaTime)
     self:UpdateGrounding(deltaTime)
     --self:UpdateCamera(deltaTime)
     self:UpdateMesh(deltaTime)
-
-    self:UpdateCrankage(deltaTime)
 end
 
 function CharacterController:UpdateInput(deltaTime)
@@ -253,6 +268,8 @@ end
 
 function CharacterController:UpdateMovement(deltaTime)
 
+    local crankMod = 1
+
     -- Apply gravity
     if (not self.grounded) then
         local gravity = self.gravity
@@ -261,9 +278,13 @@ function CharacterController:UpdateMovement(deltaTime)
         end
         self.extVelocity.y = self.extVelocity.y + gravity * deltaTime
     end
-
+    
     -- Get crankage modifier
-    local crankMod = 1 - (1-self.crankage)^self.powEaseValue
+    if (self.enableCrankage) then
+        crankMod = 1 - (1-self.crankage)^self.powEaseValue
+    else
+        crankMod = 1
+    end
 
     --Rotate
     self.tankRotation = self.tankRotation + ((self.rotationSpeed * crankMod) * self.rotationDir * deltaTime)
@@ -421,19 +442,55 @@ function CharacterController:UpdateMesh(deltaTime)
         self.mesh:SetRotation(Vec(0, self.tankRotation, 0))
     end
     ]]--
+    -- Log.Console("Current state = " .. tostring(self.characterState), Vec(255, 255, 255, 255))
 
     -- Update looping animation
-    if (not self.grounded and self.timeSinceGrounded > 0.1) then
-        -- Don't play fall animation if jump animation is playing.
-        -- Wait until it finishes so that we get a seamless transition between
-        -- the end of the jump animation and the beginning of the fall animation.
-        if (not self.mesh:IsAnimationPlaying("Jump")) then
-            self.mesh:PlayAnimation("Fall", 0, true, 1, 1)
+    if (self.moveVelocity:Length2() > 1.0) then -- Needs to be more precise criterion (fwd / bwd)
+       
+        -- Log.Console('X:' .. tostring(self.moveVelocity.x) .. ' Y: ' .. tostring(self.moveVelocity.y) .. ' Z: ' .. tostring(self.moveVelocity.z), Vec(255,255,255,255))
+        if (self.characterState == CharacterState.idle) then
+
+            if (self.inAnim == false) then
+
+                self.inAnim = true
+                self.mesh:PlayAnimation("idle_to_walk_f", 0, false, 1, 1)
+
+            elseif (self.inAnim == true and not self.mesh:IsAnimationPlaying("idle_to_walk_f")) then
+
+                self.characterState = CharacterState.walkForward
+
+            else
+
+                Log.Console("Hit Else", Vec(255, 100, 100, 255))
+
+            end
         end
-    elseif (self.moveVelocity:Length2() > 1.0) then
-        self.mesh:PlayAnimation("Run", 0, true, 1.5, 1)
+
+        if (self.characterState == CharacterState.walkForward) then
+
+            self.mesh:PlayAnimation("walk_f", 0, true, 1, 1)
+
+        end
+
     else
-        self.mesh:PlayAnimation("Idle", 0, true, 1, 1)
+
+        if (self.inAnim == true) then
+
+            self.mesh:PlayAnimation("idle", 0, true, 1, 1)
+            self.characterState = CharacterState.idle
+            self.inAnim = false
+            
+        else
+
+            self.mesh:PlayAnimation("idle", 0, true, 1, 1)
+
+        end
+        -- if (not self.mesh:IsAnimationPlaying("idle_to_walk_f") and not self.mesh:IsAnimationPlaying("walk_f")) then
+
+        --     self.inAnim = false
+        --     self.mesh:PlayAnimation("idle", 0, true, 1, 1)
+
+        -- end
     end
 end
 
@@ -441,7 +498,7 @@ function CharacterController:UpdateCrankage(deltaTime)
 
     if (self.decayCounter >= self.decayTimer) then
         self.crankage = math.max((self.crankage - self.decayAmount), 0)
-        Log.Console('Reducing crank -- new crank: ' .. tostring(self.crankage), Vec(255,255,255,255))
+        -- Log.Console('Reducing crank -- new crank: ' .. tostring(self.crankage), Vec(255,255,255,255))
         self.decayCounter = 1
     else
         -- Log.Console('Decay counter: ' .. tostring(self.decayCounter), Vec(255,255,0,255))

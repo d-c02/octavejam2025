@@ -57,6 +57,7 @@ function CharacterController:Create()
     -- Animation State
     self.characterState = CharacterState.idle
     self.inAnim = false
+    self.outAnim = false
 
     -- Movement State
     self.moveDir = Vec()
@@ -461,7 +462,7 @@ function CharacterController:UpdateMesh(deltaTime)
 
             else
 
-                Log.Console("Hit Else", Vec(255, 100, 100, 255))
+                Log.Console("In Animation:" .. tostring(self.inAnim), Vec(255, 255, 255, 255))
 
             end
         end
@@ -474,35 +475,62 @@ function CharacterController:UpdateMesh(deltaTime)
 
     else
 
-        if (self.inAnim == true) then
+        if (self.inAnim and self.outAnim) then
 
-            self.mesh:PlayAnimation("idle", 0, true, 1, 1)
-            self.characterState = CharacterState.idle
-            self.inAnim = false
+            if (not self.mesh:IsAnimationPlaying("walk_f_to_idle")) then
+                
+                self.inAnim = false
+                self.outAnim = false
             
-        else
+            end
 
+        elseif (self.inAnim == true) then
+
+            Log.Console("Trying to stop", Vec(255, 255, 255, 255))
+
+            if (self.mesh:IsAnimationPlaying("walk_f")) then
+
+                self.mesh:PlayAnimation("walk_f", 0, false, 1, 1)
+                self.outAnim = true
+                self.inAnim = false
+            
+            else
+
+                self.inAnim = false
+
+            end
+            
+        elseif (self.outAnim == true and not self.mesh:IsAnimationPlaying("walk_f_to_idle")) then
+
+            self.mesh:PlayAnimation("walk_f_to_idle", 0, false, 1, 1)
+
+        elseif (self.outAnim == true and self.mesh:IsAnimationPlaying("walk_f_to_idle")) then
+
+            self.inAnim = true
+        
+        end
+
+        if (not self.inAnim and not self.outAnim) then
+
+            self.characterState = CharacterState.idle
             self.mesh:PlayAnimation("idle", 0, true, 1, 1)
 
         end
-        -- if (not self.mesh:IsAnimationPlaying("idle_to_walk_f") and not self.mesh:IsAnimationPlaying("walk_f")) then
-
-        --     self.inAnim = false
-        --     self.mesh:PlayAnimation("idle", 0, true, 1, 1)
-
-        -- end
     end
 end
 
 function CharacterController:UpdateCrankage(deltaTime)
 
     if (self.decayCounter >= self.decayTimer) then
+
         self.crankage = math.max((self.crankage - self.decayAmount), 0)
         -- Log.Console('Reducing crank -- new crank: ' .. tostring(self.crankage), Vec(255,255,255,255))
         self.decayCounter = 1
+
     else
         -- Log.Console('Decay counter: ' .. tostring(self.decayCounter), Vec(255,255,0,255))
         self.decayCounter = self.decayCounter + 1
+
     end
 
 end

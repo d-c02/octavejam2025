@@ -93,20 +93,14 @@ end
 function CharacterController:Start()
 
     self:GetParent():SetPersistent(true)
-    self:AddTag("Controller")
+    -- self:AddTag("Player")
 
     Input.LockCursor(true)
     Input.TrapCursor(true)
     Input.ShowCursor(false)
 
-    -- if (not self.collider) then
     self.collider = self:GetParent()
-    -- end
     self.collider:AddTag("Player")
-    
-    -- if (not self.camera) then
-    self.camera = self.collider:FindChild("Camera", true)
-    -- end
 
     -- if (not self.cameraPivot) then
         -- self.cameraPivot = self.camera:GetParent()
@@ -442,7 +436,7 @@ function CharacterController:UpdateCrankage(deltaTime)
 
     if (self.decayCounter >= self.decayTimer) then
         self.crankage = math.max((self.crankage - self.decayAmount), 0)
-        Log.Console('Reducing crank -- new crank: ' .. tostring(self.crankage), Vec(255,255,255,255))
+        -- Log.Console('Reducing crank -- new crank: ' .. tostring(self.crankage), Vec(255,255,255,255))
         self.decayCounter = 1
     else
         -- Log.Console('Decay counter: ' .. tostring(self.decayCounter), Vec(255,255,0,255))

@@ -19,7 +19,8 @@ function Enemy:Create()
     self.vertSlideLimit = 0.35
     self.activeRegionIndex = -1
     self.followPath = nil
-    self.navRegionFeatherDist = 0.5
+    -- self.navRegionFeatherDist = 0.5
+    self.navRegionFeatherDist = 5.0
     self.targetIndex = -1
     self.targetPos = Vec()
 
@@ -44,7 +45,8 @@ end
 
 function Enemy:Start()
     self.collider = self:GetParent()
-    self.collider:AddTag("Enemy")
+    -- self.collider:AddTag("Enemy")
+    self:AddTag("Enemy")
     
     -- self:AddTag("Enemy")
 
@@ -71,10 +73,14 @@ function Enemy:UpdateTargeting(deltaTime)
             self.moveDir = self.moveDir:Normalize()
 
         else
-            if (self.collider:GetWorldPosition():Distance(self.navMap:GetRegionPos(self.targetIndex)) <= navRegionFeatherDist) then
+            if (self.collider:GetWorldPosition():Distance(self.navMap:GetRegionPos(self.targetIndex)) <= self.navRegionFeatherDist) then
                 self.activeRegionIndex = self.targetIndex
-                self.targetIndex = self.followPath:remove(1)
+                self.targetIndex = table.remove(self.followPath, 1)
             end
+
+            self.moveDir = self.navMap:GetRegionPos(self.targetIndex) - self.collider:GetWorldPosition()
+            self.moveDir.y = 0
+            self.moveDir = self.moveDir:Normalize()
         end
     else
         if self.collider:GetWorldPosition():Distance(self.player:GetWorldPosition()) < self.detectionRadius then
@@ -97,9 +103,7 @@ function tprint (tbl, indent)
 end
 
 function Enemy:UpdateFollowPath(index)
-    self.activeRegionIndex = index
     self.followPath = self.navMap:GetPathToPlayer(self.activeRegionIndex)
-    self.activeRegionIndex = self.targetIndex
     self.targetIndex = table.remove(self.followPath, 1)
 end
 
@@ -232,4 +236,7 @@ end
 
 function Enemy:SetNavRegionIndex(index)
     self.activeRegionIndex = index
+    Log.Debug("Active Region Index Set 2:")
+    Log.Debug(self.activeRegionIndex)
+    Log.Debug("---------")
 end

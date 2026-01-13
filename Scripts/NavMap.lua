@@ -19,8 +19,28 @@ function NavMap:GatherProperties()
 end
 
 function NavMap:Start()
+	--[[
 	for i = 1, #self.navRegions do
 		self.navRegions[i]:SetIndex(i)
+	end
+	]]--
+	Log.Debug("=== A-STAR TEST===")
+	local path = self:AStar(4, 11)
+
+	Log.Debug("--Path--")
+	tprint(path)
+
+	local colorStart = Vec(1,0,0,1)
+	local colorEnd = Vec(0,1,0,1)
+	for i = 1, #path do 
+		if (path[i+1]) then
+			local lineStart = self.navRegions[path[i]]:GetWorldPosition()
+			local lineEnd = self.navRegions[path[i+1]]:GetWorldPosition()
+			local lineColor = Vector.Lerp(colorStart, colorEnd, (i-1) / (#path - 1))
+			local lineTime = 5.0
+			Renderer.AddDebugLine(lineStart, lineEnd, lineColor, lineTime)
+
+		end
 	end
 end
 
@@ -32,12 +52,12 @@ function NavMap:SetActiveIndex(index)
 	self.prevIndex = self.activeIndex
 	self.activeIndex = index
 	for i = 1, #self.enemies do
-		self.enemies[i]:UpdateFollowPath(index)
+		self.enemies[i]:UpdateFollowPath(self.activeIndex)
 	end
 end
 
 function NavMap:RollbackActiveIndex()
-	self.activeIndex = self.prevIndex
+	-- self.activeIndex = self.prevIndex
 end
 
 function NavMap:GetActiveIndex()
@@ -68,6 +88,7 @@ end
 function NavMap:AStar(initialIndex, finalIndex)
 	openList = {}
 	closedList = {}
+	closedIndices = {}
 	parents = {}
 
 	for i = 1, #self.navRegions do
@@ -93,56 +114,87 @@ function NavMap:AStar(initialIndex, finalIndex)
 		curF = minF
 		table.remove(openList, curNodei)
 		table.insert(closedList, {curNode, curF})
+		closedIndices[curNode] = true
+
+		Log.Debug("CurNode = " .. curNode .. ", " .. curF)
 
 		neighbors = self.navRegions[curNode]:GetNeighbors()
 		for i = 1, #neighbors do
-			parents[neighbors[i]:GetIndex()] = curNode
+			--Check that neighbor isn't closed
+			if (not closedIndices[neighbors[i]:GetIndex()]) then
+				parents[neighbors[i]:GetIndex()] = curNode
 
-			if neighbors[i]:GetIndex() == finalIndex then
-				openList = {}
-				break
-			end
-
-			-- f = g + h
-			f =	curF + (self.navRegions[neighbors[i]:GetIndex()]:GetWorldPosition():Distance(self.navRegions[finalIndex]:GetWorldPosition()))
-
-			addToOpen = true
-			for o = 1, #openList do
-				if openList[o][1] == neighbors[i]:GetIndex() and openList[o][2] < f then
-					addToOpen = false
+				if neighbors[i]:GetIndex() == finalIndex then
+					openList = {}
 					break
 				end
-			end
 
-			if addToOpen then
-				for c = 1, #closedList do
-					if closedList[c][1] == neighbors[i]:GetIndex() and closedList[c][2] < f then
+				-- f = g + h
+				-- Log.Debug("--Neighbors-- " .. i)
+				-- tprint(neighbors)
+				-- Log.Debug("--NavRegions--")
+				-- tprint(self.navRegions)
+
+				-- Log.Debug("Index = " .. tostring(neighbors[i]:GetIndex()))
+
+
+				f =	curF + (self.navRegions[neighbors[i]:GetIndex()]:GetWorldPosition():Distance(self.navRegions[finalIndex]:GetWorldPosition()))
+
+				addToOpen = true
+				for o = 1, #openList do
+					if openList[o][1] == neighbors[i]:GetIndex() and openList[o][2] < f then
 						addToOpen = false
 						break
 					end
 				end
-			end
 
-			if addToOpen then
-				table.insert(openList, {neighbors[i]:GetIndex(), f})
+				if addToOpen then
+					for c = 1, #closedList do
+						if closedList[c][1] == neighbors[i]:GetIndex() and closedList[c][2] < f then
+							addToOpen = false
+							break
+						end
+					end
+				end
+
+				if addToOpen then
+					Log.Debug("Add to open: " .. neighbors[i]:GetIndex() .. ", " .. f)
+					table.insert(openList, {neighbors[i]:GetIndex(), f})
+				end
 			end
 		end
 	end
 
+	Log.Debug("--Parents--")
 	tprint(parents)
+
+	Log.Debug("--Closed--")
+	tprint(closedList)
+
+	Log.Debug("finalIndex = " .. finalIndex)
 
 	reversedpath = {finalIndex}
 	parent = parents[finalIndex]
-	while not parents[parent] == nil do
+
+	Log.Debug("parents[finalIndex] = " .. tostring(parent))
+
+	local maxIter = 500
+	while parent ~= nil do
+		Log.Debug("Add " .. parent)
 		table.insert(reversedpath, parent)
 		parent = parents[parent]
-	end
+		maxIter = maxIter - 1
+		if (maxIter <= 0) then break end
+	end	
+
+	Log.Debug("--RevPath--")
+	tprint(reversedpath)
 
 	
 
 	finalpath = {}
-	for p = #reversedpath, 1 do
-		table.insert(finalpath, reversedpath[i])
+	for p = #reversedpath, 1, -1 do
+		table.insert(finalpath, reversedpath[p])
 	end
 	
 	return finalpath

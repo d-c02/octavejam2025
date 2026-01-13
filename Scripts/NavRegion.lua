@@ -11,6 +11,7 @@ function NavRegion:GatherProperties()
     return
     {
         { name = "neighbors", type = DatumType.Node, array = true },
+        { name = "index", type = DatumType.Integer}
     }
 
 end
@@ -40,8 +41,8 @@ function NavRegion:BeginOverlap(thisNode, otherNode)
     end
 
     if (otherNode:HasTag("Enemy")) then
-        -- Log.Debug("Enemy region hit")
-        otherNode:SetNavRegionIndex(self.index)
+        --Log.Debug("Enemy region hit")
+        otherNode:GetChild(1):SetNavRegionIndex(self.index)
     end
 
 end

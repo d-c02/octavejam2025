@@ -83,11 +83,24 @@ function Enemy:UpdateTargeting(deltaTime)
     end
 end
 
-function Enemy:UpdateFollowPath()
-    self.followPath = self.navMap:GetPathToPlayer(activeRegionIndex)
+function tprint (tbl, indent)
+  if not indent then indent = 0 end
+  for k, v in pairs(tbl) do
+    formatting = string.rep("  ", indent) .. k .. ": "
+    if type(v) == "table" then
+      Log.Debug(formatting)
+      tprint(v, indent+1)
+    else
+      Log.Debug(formatting .. tostring(v))
+    end
+  end
+end
+
+function Enemy:UpdateFollowPath(index)
+    self.activeRegionIndex = index
+    self.followPath = self.navMap:GetPathToPlayer(self.activeRegionIndex)
     self.activeRegionIndex = self.targetIndex
-    self.targetIndex = self.followPath:remove(1)
-    Log.Debug(self.targetIndex)
+    self.targetIndex = table.remove(self.followPath, 1)
 end
 
 function Enemy:UpdateDrag(deltaTime)

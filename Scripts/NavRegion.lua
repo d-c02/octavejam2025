@@ -23,13 +23,19 @@ function NavRegion:SetIndex(index)
 	self.index = index
 end
 
+function NavRegion:GetIndex()
+    return self.index
+end
+
 function NavRegion:GetNeighbors()
 	return self.neighbors
 end
 
 function NavRegion:BeginOverlap(thisNode, otherNode)
     if (otherNode:HasTag("Player")) then
-        -- Log.Debug("Player region hit")
+        -- Log.Debug("Player region hit:")
+        -- Log.Debug(self.index)
+        -- Log.Debug("---")
         self.navMap:SetActiveIndex(self.index)
     end
 

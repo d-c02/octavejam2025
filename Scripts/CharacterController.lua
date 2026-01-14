@@ -105,20 +105,15 @@ end
 
 function CharacterController:Start()
 
-    self:AddTag("Controller")
+    self:GetParent():SetPersistent(true)
+    -- self:AddTag("Player")
 
     Input.LockCursor(true)
     Input.TrapCursor(true)
     Input.ShowCursor(false)
 
-    -- if (not self.collider) then
     self.collider = self:GetParent()
-    -- end
     self.collider:AddTag("Player")
-    
-    -- if (not self.camera) then
-    self.camera = self.collider:FindChild("Camera", true)
-    -- end
 
     -- if (not self.cameraPivot) then
         -- self.cameraPivot = self.camera:GetParent()

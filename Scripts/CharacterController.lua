@@ -7,7 +7,7 @@ CharacterState =
     idle = "IDLE",
     walkForward = "WALK_F",
     walkBackward = "WALK_B",
-    cranking = "WIND"
+    wind = "WIND"
 }
 
 CharacterController = {}
@@ -49,10 +49,9 @@ function CharacterController:Create()
     self.powEaseValue = 8
 
     -- Animation State
-    self.characterState = CharacterState.idle
-    self.inAnim = false
-    self.outAnim = false
     self.animation_controller = create_animation_state()
+    self.characterState = "IDLE"
+    self.prev_characterState = nil
 
     -- Movement State
     self.moveDir = Vec()
@@ -105,15 +104,20 @@ end
 
 function CharacterController:Start()
 
-    self:GetParent():SetPersistent(true)
-    -- self:AddTag("Player")
+    self:AddTag("Controller")
 
     Input.LockCursor(true)
     Input.TrapCursor(true)
     Input.ShowCursor(false)
 
+    -- if (not self.collider) then
     self.collider = self:GetParent()
+    -- end
     self.collider:AddTag("Player")
+    
+    -- if (not self.camera) then
+    self.camera = self.collider:FindChild("Camera", true)
+    -- end
 
     -- if (not self.cameraPivot) then
         -- self.cameraPivot = self.camera:GetParent()
@@ -143,8 +147,15 @@ function CharacterController:Tick(deltaTime)
     self:UpdateDrag(deltaTime)
 
     self:UpdateState(deltaTime)
-    self.animation_controller:on_state_changed(self.characterState, self.mesh)
+
+    if self.characterState ~= self.prev_characterState then
+        self.animation_controller:on_state_changed(self.characterState, self.mesh)
+        self.prev_characterState = self.characterState
+    end
+
     self.animation_controller:update(self.mesh)
+    Log.Console(tostring(self.characterState), Vec(255,255,255,255))
+
     self:UpdateMovement(deltaTime)
     self:UpdateCrankage(deltaTime)
     self:UpdateGrounding(deltaTime)
@@ -219,6 +230,7 @@ function CharacterController:UpdateInput(deltaTime)
         
 end
 
+-- TODO unnecessary. remove
 function CharacterController:UpdateJump(deltaTime)
 
     local jumpPressed = Input.IsKeyPressed(Key.Space) or Input.IsGamepadPressed(Gamepad.A)
@@ -239,6 +251,7 @@ function CharacterController:UpdateJump(deltaTime)
 
 end
 
+-- TODO unnecessary. remove
 function CharacterController:UpdateDrag(deltaTime)
 
     -- Update drag
@@ -347,117 +360,38 @@ function CharacterController:UpdateGrounding(deltaTime)
 end
 
 
---[[
-function CharacterController:UpdateCamera(deltaTime)
-
-    local kFollowMinDistXZ = 4.0
-
-    if (self.enableFollowCam) then
-
-        -- Ensure proper attachment in case follow cam is toggled
-        self.camera:Attach(self.world:GetRootNode())
-
-        local colliderPos = self.collider:GetWorldPosition()
-
-        if (Input.IsKeyPressed(Key.Q) or Input.IsGamepadPressed(Gamepad.L1)) then
-            -- Move camera behind player
-            self.camera:SetWorldPosition(colliderPos - self.mesh:GetForwardVector() * self.cameraDistance)
-        end
-
-        local deltaPos = self.camera:GetWorldPosition() - colliderPos
-        local deltaPosXZ = Vec(deltaPos.x, 0, deltaPos.z)
-
-        deltaPosXZ.y = 0.0
-
-        local dist = deltaPosXZ:Magnitude()
-
-        if (dist > self.cameraDistance) then
-            deltaPosXZ = deltaPosXZ:Normalize() * self.cameraDistance
-        elseif (dist < kFollowMinDistXZ) then
-            deltaPosXZ = deltaPosXZ:Normalize() * kFollowMinDistXZ
-        end
-
-        deltaPos = Vec(deltaPosXZ.x, self.followCamHeight, deltaPosXZ.z)
-
-        local worldPos = colliderPos + deltaPos
-        self.camera:SetWorldPosition(worldPos)
-        self.camera:LookAt(colliderPos)
-    else
-
-        -- Ensure proper attachment in case follow cam is toggled
-        self.camera:Attach(self.cameraPivot)
-        self.camera:SetRotation(Vec(0,0,0))
-
-        local lookRot = self.lookVec * self.lookSpeed
-
-        -- Adjust rotation of camera pivot based on player input
-        local camPivotRot = self.cameraPivot:GetRotation()
-        camPivotRot.y = camPivotRot.y - lookRot.x * deltaTime
-        camPivotRot.x = camPivotRot.x - lookRot.y * deltaTime
-        camPivotRot.x = Math.Clamp(camPivotRot.x, -89.9, 89.9)
-        self.cameraPivot:SetRotation(camPivotRot)
-
-        -- Adjust camera distance
-        self.camera:SetPosition(Vec(0, 0, self.cameraDistance))
-    end
-
-    -- Do camera collision tracing
-    if (self.enableCameraTrace) then
-        local rayStart = self.collider:GetWorldPosition()
-        local rayEnd = self.camera:GetWorldPosition()
-        local colMask = 0x02 -- Default collision group for environment
-        local res = self.world:RayTest(rayStart, rayEnd, colMask)
-
-        if (res.hitNode) then
-            -- The trace hit something, so place the camera at the hit location
-            local pos = Vector.Lerp(rayStart, rayEnd, res.hitFraction)
-            self.camera:SetWorldPosition(pos)
-        end
-    end
-end
-]]--
-
-
 function CharacterController:UpdateState(deltaTime)
 
-    if (self:UpdateCrankage(deltaTime)) then
-        
-        self.characterState = CharacterState.cranking
-        
-    elseif (self.moveVelocity:Length2() > 1.0) then
+    -- idle is the default
+    local next_state = "IDLE"
 
-    -- Log.Console(tostring(self.moveDir), Vec(255,255,255,255))
-
-        if (self.moveDir.z < 0) then
-
-            self.characterState = CharacterState.walkForward
-
-        elseif (self.moveDir.z > 0) then
-
-            self.characterState = CharacterState.walkBackward
-
-        else
-
-            -- Log.Console("Ugh not good!", Vec(255,255,255,255))
-            self.characterState = CharacterState.idle
-
-        end
-
-    else
-
-        self.characterState = CharacterState.idle
-
+    -- locomotion derived from INTENT, not actual physics. moonwalking against walls is preferred as a design choice for this era of game.
+    if self.moveDir.z < 0 then
+        next_state = "WALK_F"
+    elseif self.moveDir.z > 0 then
+        next_state = "WALK_B"
     end
-    Log.Console(tostring(self.characterState), Vec(255,255,255,255))
+
+    -- winding is a LATCHED state with the highest priority
+    if Input.IsKeyDown(Key.R) then
+        next_state = "WIND"
+    end
+
+    self.characterState = next_state
+
+    -- Log.Console(tostring(self.characterState), Vec(255,255,255,255))
 
 end
 
 function CharacterController:UpdateCrankage(deltaTime)
+    -- actually, if this function is the cranking behavior, then it should trigger on state change. 
+    -- just for clarity & to not mutate states from multiple different sources
 
     -- Refill crankage
-    if (Input.IsKeyPressed(Key.R)) then
-        self.crankage = Math.Clamp(self.crankage + (self.decayAmount * 2), 0, 1)
-        -- do some kind of pause/winding animation        
+
+    -- cranking physics now dependent on behavioral state, not the other way around
+    if self.characterState == "WIND" then
+        self.crankage = Math.Clamp(self.crankage + (self.decayAmount * 2), 0, 1)      
         return true
 
     end
@@ -548,13 +482,7 @@ function CharacterController:SetGrounded(grounded)
     end
 end
 
---[[
-function CharacterController:GetCameraYaw()
-    return self.enableFollowCam and
-        self.camera:GetRotation().y or
-        self.cameraPivot:GetRotation().y
-end
-]]--
+
 
 function create_animation_state()
 
@@ -569,7 +497,7 @@ function create_animation_state()
     }
 
     ctrl.current_state = nil
-    ctrl.locomotion_phase = "idle" --"idle", "start", "walking", "stop"
+    ctrl.locomotion_phase = "idle" --"idle", "start", "walking", "stop" (YEAH NOW THERE ALSO HAVE TO BE _F AND _B DISTINCTIONS. FUCK YOU.)
     ctrl.winding_phase = nil -- "start", "winding", "stop"
 
     ctrl.is_winding_finished = false -- returns true when the wind_to_idle transition finishes (can use for changing char state. do NOT use button release or it will cut off animation)
@@ -577,68 +505,102 @@ function create_animation_state()
 
     function ctrl:on_state_changed(new_state, mesh)
 
-        -- set the "current state" to the new state
+        -- set the "current state" to the new state (assumes an actual change happened)
         -- trigger the correct animation sequence
 
-        if new_state ~= self.current_state then
+        -- note: for some reason in lua, 0 = TRUE???? bruh moment. anyways...
 
-            if new_state == "IDLE" then
-                self:goto_idle(new_state, mesh)
+        if new_state == "IDLE" then
+            self:goto_idle(self.current_state, mesh)
+            Log.Console("goto_idle!", Vec(255,255,0,255))
 
-            elseif new_state == "WALK_F" then
-                self:goto_walk(0, mesh)
+        elseif new_state == "WALK_F" then
+            self:goto_walk(false, mesh)
+            Log.Console("goto_walk (false)!", Vec(0,255,255,255))
 
-            elseif new_state == "WALK_B" then
-                self:goto_walk(1, mesh)
+        elseif new_state == "WALK_B" then
+            self:goto_walk(true, mesh)
+            Log.Console("goto_walk (true)!", Vec(255,0,255,255))
 
-            elseif new_state == "WIND" then
-                self:goto_wind(mesh)
+        elseif new_state == "WIND" then
+            self:goto_wind(mesh)
 
-            else
-                error("ctrl:on_state_changed received an invalid state! :" .. tostring(new_state), 2)
-
-            end
-
-            self.current_state = new_state
+        else
+            error("ctrl:on_state_changed received an invalid state! :" .. tostring(new_state), 2)
 
         end
+
+        self.current_state = new_state
+
     end
 
-    function ctrl:update(mesh) -- polling... (i give you hooks, you use them!)
+    function ctrl:update(mesh) -- polling...
 
         local previous_winding_phase = self.winding_phase
 
-        -- yeah, yeah, there's duplicates. we'll deal with it for now and reduce redundant stuff
-        if mesh:IsAnimationPlaying("walk_f") or mesh:IsAnimationPlaying("walk_b") then
-            self.locomotion_phase = "walking"
+        -- alright, we fucked up the polling. no re-deriving! polling needs to be the thing that ADVANCES phase when animations are finished. go figure!
 
-        elseif mesh:IsAnimationPlaying("idle_to_walk_f") or mesh:IsAnimationPlaying("idle_to_walk_b") then
-            self.locomotion_phase = "start"
+        -- if state=start and our start animation isn't playing, then it's finished! cue walking!
+        if self.locomotion_phase == "start_f" and not mesh:IsAnimationPlaying("idle_to_walk_f") then
+            self.locomotion_phase = "walking_f"
+            mesh:PlayAnimation("walk_f", 0, true, 1, 1) -- we have to trigger it here because the stack is broken :)
 
-        elseif mesh:IsAnimationPlaying("walk_f_to_idle") or mesh:IsAnimationPlaying("walk_b_to_idle") then
-            self.locomotion_phase = "stop"
+        elseif self.locomotion_phase == "start_b" and not mesh:IsAnimationPlaying("idle_to_walk_b") then
+            self.locomotion_phase = "walking_b"
+            mesh:PlayAnimation("walk_b", 0, true, 1, 1)        
 
-        else
+        -- same logic with our stopping phase. if we're in the phase and they're done playing, it's idle now!
+        elseif self.locomotion_phase == "stop_f" and not mesh:IsAnimationPlaying("walk_f_to_idle") then
             self.locomotion_phase = "idle"
+            mesh:PlayAnimation("idle", 0, true, 1, 1)
+
+        elseif self.locomotion_phase == "stop_b" and not mesh:IsAnimationPlaying("walk_b_to_idle") then
+            self.locomotion_phase = "idle"
+            mesh:PlayAnimation("idle", 0, true, 1, 1)
+
         end
 
-
-        if mesh:IsAnimationPlaying("wind") then
-            self.winding_phase = "winding"
+        -- but bobby, WHERE DOES IT SET for start and stop ?????
+        -- in goto_walk and goto_idle !
         
-        elseif mesh:IsAnimationPlaying("idle_to_wind") then
-            self.winding_phase = "start"
 
-        elseif mesh:IsAnimationPlaying("wind_to_idle") then
-            self.winding_phase = "stop"
+        -- same thing for winding. you absolute buffoon.
+        if self.winding_phase == "start" then
+            if not mesh:IsAnimationPlaying("idle_to_wind") then
+                self.winding_phase = "winding"
+                mesh:PlayAnimation("wind", 0, true, 1, 1)
+            end
+        elseif self.winding_phase == "stop" then
+            if not mesh:IsAnimationPlaying("wind_to_idle") then
+                self.winding_phase = nil
+                mesh:PlayAnimation("idle", 0, true, 1, 1)
+            end
+        end
 
-        else
-            self.winding_phase = nil
+        -- kill me
+
+
+        -- uh? testing state-phase mismatch cases
+        if self.locomotion_phase ~= "idle" and self.current_state == "IDLE" then
+            -- if they don't match, then we need to transition back to idle at the first opportunity
+            local state = nil
+
+            if self.locomotion_phase == "walking_f" then
+                state = "WALK_F"
+                
+            elseif self.locomotion_phase == "walking_b" then
+                state = "WALK_B"
+            end
+
+            self:goto_idle(state, mesh)
 
         end
 
-        -- TODO log phase updates to console (debug)
+        if self.winding_phase ~= nil and self.current_state == "IDLE" then
+            self:goto_idle("WIND", mesh)
+        end
 
+        
         -- what we definitely do need is to know when wind_to_idle has finished, to trigger the state change out of WIND.
         -- WIND determines not just animations, but also behavior (locomotion disabled). so it's important to get the timing right
 
@@ -650,10 +612,11 @@ function create_animation_state()
             self.is_winding_finished = false
         end
 
+        Log.Console(tostring(self.is_winding_finished), Vec(255,255,255,255))
+
     end
 
-
-    -- this is where the actual animation triggering/queue logic happens
+    -- this is where the actual animation triggering/queue logic happens, ALLEGEDLY
 
     function ctrl:goto_walk(is_backward, mesh)
 
@@ -663,53 +626,47 @@ function create_animation_state()
             return
         end
 
-        self.locomotion_phase = "start"
-
-        local walk_anim = "walk_f"
         local start_transition_anim = "idle_to_walk_f"
+        self.locomotion_phase = "start_f"
 
         if is_backward then
-            walk_anim = "walk_b"
             start_transition_anim = "idle_to_walk_b"
+            self.locomotion_phase = "start_b"
 
         end
 
         mesh:PlayAnimation(start_transition_anim, 0, false, 1, 1)
-        mesh:QueueAnimation(walk_anim, start_transition_anim, 0, true, 1, 1)
+        -- queueing is broken :)
 
     end
 
     function ctrl:goto_idle(previous_state, mesh)
 
         -- should not trigger unless we're in a "walking"/"winding" phase
-        if previous_state == "WALK_F" or previous_state == "WALK_B" then
-            if self.locomotion_phase ~= "walking" then
+        if previous_state == "WALK_F" then
+            if self.locomotion_phase ~= "walking_f" then
                 return
             end
 
-            self.locomotion_phase = "stop"
+            self.locomotion_phase = "stop_f"
+            mesh:PlayAnimation("walk_f_to_idle", 0, false, 1, 1)
+            
+        elseif previous_state == "WALK_B" then
+            if self.locomotion_phase ~= "walking_b" then
+                return
+            end
+
+            self.locomotion_phase = "stop_b"
+            mesh:PlayAnimation("walk_b_to_idle", 0, false, 1, 1)
 
         elseif previous_state == "WIND" then
             if self.winding_phase ~= "winding" then
                 return
             end
 
-            self.winding_phase = stop
+            self.winding_phase = "stop"
+            mesh:PlayAnimation("wind_to_idle", 1, false, 1, 1)
         end
-
-
-        if previous_state == "WALK_F" then
-            mesh:QueueAnimation("walk_f_to_idle", "walk_f", 0, false, 1, 1)
-
-        elseif previous_state == "WALK_B" then
-            mesh:QueueAnimation("walk_b_to_idle", "walk_b", 0, false, 1, 1)
-
-        elseif previous_state == "WIND" then
-            mesh:QueueAnimation("wind_to_idle", "wind", 1, false, 1, 1)
-    
-        end
-
-        mesh:QueueAnimation("idle", nil, 0, true, 1, 1)
 
     end
 
@@ -722,7 +679,7 @@ function create_animation_state()
         self.winding_phase = "start"
 
         mesh:PlayAnimation("idle_to_wind", 1, false, 1, 1)
-        mesh:QueueAnimation("wind", nil, 1, true, 1, 1)
+        -- queue is broken :)
 
     end
 
